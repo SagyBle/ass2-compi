@@ -56,6 +56,7 @@ end;; *)
     | hd::[] -> ScmPair (hd, ScmNil)
     | hd::tl -> ScmPair (hd, list_to_proper_list tl);;
 
+
   let is_reserved_word name = is_member name reserved_word_list;;
 
   let unsymbolify_var = function
@@ -113,6 +114,7 @@ end;; *)
     | expr' :: exprs -> ScmPair(ScmSymbol("if"), ScmPair(expr, ScmPair(macro_expand_and_clauses expr' exprs,
                            ScmPair(ScmBoolean(false), ScmNil))))
 
+
   let rec macro_expand_cond_ribs ribs =
     match ribs with
     | ScmNil -> ScmVoid
@@ -164,6 +166,9 @@ end;; *)
                            (ScmPair (ScmSymbol "begin", exprs),
                             ScmPair (remaining, ScmNil))))
     | _ -> raise (X_syntax "malformed cond-rib");;
+
+
+
 
   let rec tag_parse sexpr =
     match sexpr with
@@ -222,8 +227,8 @@ end;; *)
         | params, ScmSymbol opt ->
            ScmLambda(unsymbolify_vars params, Opt opt, expr)
         | _ -> raise (X_syntax "invalid parameter list"))
-(* *** *)
-    | ScmPair (ScmSymbol "let", ScmPair (ribs, exprs)) ->
+
+   | ScmPair (ScmSymbol "let", ScmPair (ribs, exprs)) ->
       let no_nil_func = fun (x, ScmNil) -> x in
 
       let ribs_list_nil = scheme_list_to_ocaml ribs in
@@ -241,22 +246,56 @@ end;; *)
          ScmPair(list_to_proper_list vars_symbols_list,
             exprs_list_body)), 
             list_to_proper_list vals_list))
-(* *** *)      
-      
+
+         
     | ScmPair (ScmSymbol "let*", ScmPair (ScmNil, exprs)) ->
-       raise X_not_yet_implemented
+       tag_parse (ScmPair (ScmSymbol "let", ScmPair (ScmNil, exprs)))
     | ScmPair (ScmSymbol "let*",
                ScmPair
                  (ScmPair
                     (ScmPair (var, ScmPair (value, ScmNil)), ScmNil),
-                  exprs)) -> raise X_not_yet_implemented
+                  exprs)) ->
+      tag_parse (ScmPair (ScmSymbol "let",
+               ScmPair
+                 (ScmPair
+                    (ScmPair (var, ScmPair (value, ScmNil)), ScmNil),
+                  exprs)))
+
     | ScmPair (ScmSymbol "let*",
                ScmPair (ScmPair (ScmPair (var,
                                           ScmPair (arg, ScmNil)),
                                  ribs),
-                        exprs)) -> raise X_not_yet_implemented
+                        exprs)) ->
+      tag_parse (ScmPair
+         (ScmSymbol "let",
+         ScmPair
+            (ScmPair
+            (ScmPair (var, ScmPair (arg, ScmNil)),
+               ScmNil),
+            ScmPair
+            (ScmPair
+               (ScmSymbol "let*",
+               ScmPair
+                  (ribs,
+                  exprs)),
+               ScmNil))))     
+
     | ScmPair (ScmSymbol "letrec", ScmPair (ribs, exprs)) ->
-       raise X_not_yet_implemented
+      let no_nil_func = fun (x, ScmNil) -> x in
+
+      let ribs_list_nil = scheme_list_to_ocaml ribs in
+      let ribs_list = no_nil_func ribs_list_nil in 
+      let ran_over = ScmPair(ScmSymbol("quote"), ScmPair(ScmSymbol("ranover"), ScmNil)) in
+      let name_to_value = List.map (fun (ScmPair(name, ScmPair(value, ScmNil))) -> (name, value)) ribs_list in
+
+      let fake_ass_ribs = List.map
+         (fun (name, _) -> ScmPair(name, ScmPair(ran_over, ScmNil))) name_to_value in
+      let fake_ass_ribs = list_to_proper_list fake_ass_ribs in
+      let body_to_push = List.fold_right
+         (fun (name, value) so_far ->
+            ScmPair(ScmPair(ScmSymbol("set!"), ScmPair(name, ScmPair(value, ScmNil))), so_far)) name_to_value exprs in
+
+      tag_parse(ScmPair(ScmSymbol("let"), ScmPair(fake_ass_ribs, body_to_push)))
 
     | ScmPair (ScmSymbol "and", ScmNil) -> ScmConst(ScmBoolean(true))
     | ScmPair (ScmSymbol "and", exprs) ->

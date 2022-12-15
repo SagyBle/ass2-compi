@@ -1,3 +1,243 @@
+| ScmPair 
+ (ScmSymbol "let*",
+  ScmPair 
+   (ScmPair 
+     (ScmPair
+       (var,
+        ScmPair (arg, ScmNil)),
+
+      ribs),
+
+   exprs))
+
+
+(* now *)
+
+ScmPair
+ (ScmSymbol "let*",
+  ScmPair
+   (ScmPair
+     (ScmPair (ScmSymbol "x", ScmPair (ScmNumber (ScmRational (1, 1)), ScmNil)),
+      ScmPair
+       (ScmPair
+         (ScmSymbol "y", ScmPair (ScmNumber (ScmRational (2, 1)), ScmNil)),
+        ScmNil)),
+    ScmPair
+     (ScmPair
+       (ScmSymbol "+",
+        ScmPair (ScmSymbol "x", ScmPair (ScmSymbol "y", ScmNil))),
+      ScmNil)))
+
+
+
+
+
+
+
+
+
+
+ScmPair
+ (ScmSymbol "let",
+  ScmPair
+   (ScmPair
+     (ScmPair
+       (var,
+        ScmPair (arg, ScmNil)),
+      ScmNil),
+    ScmPair
+     (ScmPair
+       (ScmSymbol "let*",
+        ScmPair
+         (ribs,
+          exprs)),
+      ScmNil)))
+
+
+
+ScmPair
+ (ScmSymbol "let",
+  ScmPair
+   (ScmPair
+     (ScmPair
+       (var,
+        ScmPair (arg, ScmNil)),
+      ScmNil),
+    ScmPair
+     (ScmPair
+       ((ScmSymbol "let*",
+        ScmPair
+         (ribs,
+          exprs))),
+      ScmNil)))
+
+
+
+
+
+
+
+(* wanted 16:24 *)
+
+ScmPair
+ (ScmSymbol "let",
+  ScmPair
+   (ScmPair
+     (ScmPair (var, ScmPair (arg, ScmNil)),
+      ScmNil),
+    ScmPair
+     (ScmPair
+       (ScmSymbol "let",
+        ScmPair
+         (ribs,
+          exprs)),
+      ScmNil)))
+
+
+
+ScmPair
+  (ScmSymbol "let",
+  ScmPair
+    (ScmPair
+    (ScmPair (var, ScmPair (arg, ScmNil)),
+        ScmNil),
+    ScmPair
+    (ScmPair
+        macro_expand(ScmPair(ribs, exprs)),
+        ScmNil)))
+
+
+  let macro_expand = function
+  | ScmPair(ribs,exprs) -> 
+  | ScmPair(ScmNil, exprs) ->
+
+
+ScmPair
+ (ScmSymbol "let",
+  ScmPair
+   (ScmPair
+     (ScmPair (ScmSymbol "y", ScmPair (ScmNumber (ScmRational (2, 1)), ScmNil)),
+      ScmNil),
+    ScmPair
+     (ScmPair
+       (ScmSymbol "let*",
+        ScmPair
+         (ScmPair
+           (ScmPair
+             (ScmSymbol "z", ScmPair (ScmNumber (ScmRational (3, 1)), ScmNil)),
+            ScmNil),
+          ScmPair
+           (ScmPair
+             (ScmSymbol "+",
+              ScmPair (ScmSymbol "z", ScmPair (ScmSymbol "y", ScmNil))),
+            ScmNil))),
+      ScmNil)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* modified *)
+
+ScmPair
+ (ScmSymbol "let",
+  ScmPair
+   (ScmPair
+     (ScmPair (var, ScmPair (arg, ScmNil)),
+      ScmNil),
+    ScmPair
+     (ScmPair
+       (ScmSymbol "let*",
+        ScmPair
+         (ScmPair
+           (ScmPair
+             (ScmSymbol "y", ScmPair (ScmNumber (ScmRational (2, 1)), ScmNil)),
+            ScmNil),
+          exprs)),
+      ScmNil)))
+  
+
+
+
+
+
+
+
+
+
+
+let rec tag_parse2_var sexpr =
+    match sexpr with
+| ScmPair (ScmSymbol "let*",
+               ScmPair (ScmPair (ScmPair (var,
+                                          ScmPair (arg, ScmNil)),
+                                 ribs),
+                        exprs)) -> var ;;
+let rec tag_parse2_arg sexpr =
+    match sexpr with
+| ScmPair (ScmSymbol "let*",
+               ScmPair (ScmPair (ScmPair (var,
+                                          ScmPair (arg, ScmNil)),
+                                 ribs),
+                        exprs)) -> arg ;;
+let rec tag_parse2_ribs sexpr =
+    match sexpr with
+| ScmPair (ScmSymbol "let*",
+               ScmPair (ScmPair (ScmPair (var,
+                                          ScmPair (arg, ScmNil)),
+                                 ribs),
+                        exprs)) -> ribs ;;
+
+let rec tag_parse2_exprs sexpr =
+    match sexpr with
+| ScmPair (ScmSymbol "let*",
+               ScmPair (ScmPair (ScmPair (var,
+                                          ScmPair (arg, ScmNil)),
+                                 ribs),
+                        exprs)) -> exprs ;;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -160,3 +400,53 @@ ScmPair
             | _ -> raise (X_syntax ("rib in let is not good")))) ribs in
 
          tag_parse (ScmPair(ScmPair(ScmSymbol("lambda"), ScmPair(vars, exprs))), (sexpr_of_exprvals) *)
+
+
+
+
+
+  let rec tag_parse5 sexpr =
+    match sexpr with
+    | ScmPair (ScmSymbol "let*",
+          ScmPair (ScmPair (ScmPair (var,
+                                      ScmPair (arg, ScmNil)),
+                            ribs),
+                    exprs)) -> ScmSymbol("ok");;
+
+
+
+
+tag_parse (ScmPair
+         (ScmSymbol "let",
+         ScmPair
+            (ScmPair
+            (ScmPair (var, ScmPair (arg, ScmNil)),
+               ScmNil),
+            ScmPair
+            macro_expand(ribs,exprs))))
+
+
+ScmPair(ScmSymbol("let*"),ScmPair(ribs,body)) ->
+      (match ribs with
+      | ScmNil | ScmPair(_,ScmNil) -> macro_expand (ScmPair(ScmSymbol("let"),ScmPair(ribs,body)))
+      | ScmPair(exp1, rest) -> 
+          macro_expand (ScmPair(
+                        ScmSymbol("let"),
+                        ScmPair(
+                          ScmPair(exp1,ScmNil),
+                          ScmPair[
+                            ScmPair(
+                              ScmSymbol("let*"),
+                              ScmPair(rest,body)),
+                            ScmNil))))
+      | _ -> raise (X_syntax_error(sexpr,"Bad syntax for let*"))
+
+
+
+
+
+
+    (* Shay function *)
+
+    
+  
