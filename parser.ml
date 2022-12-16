@@ -114,6 +114,11 @@ end;; *)
     | expr' :: exprs -> ScmPair(ScmSymbol("if"), ScmPair(expr, ScmPair(macro_expand_and_clauses expr' exprs,
                            ScmPair(ScmBoolean(false), ScmNil))))
 
+ (* let rec macro_expand_or_clauses expr = function
+    | [] -> expr
+    | expr' :: exprs -> X_not_yet_implemented *)
+
+
 
   let rec macro_expand_cond_ribs ribs =
     match ribs with
@@ -453,14 +458,14 @@ type expr' =
   | ScmLambda' of string list * lambda_kind * expr'
   | ScmApplic' of expr' * expr' list * app_kind;;
 
-module type SEMANTIC_ANALYSIS = sig
+(* module type SEMANTIC_ANALYSIS = sig
   val annotate_lexical_address : expr -> expr'
   val annotate_tail_calls : expr' -> expr'
   val auto_box : expr' -> expr'
   val semantics : expr -> expr'  
-end;; (* end of signature SEMANTIC_ANALYSIS *)
+end;; end of signature SEMANTIC_ANALYSIS *)
 
-module Semantic_Analysis : SEMANTIC_ANALYSIS = struct
+(* module Semantic_Analysis : SEMANTIC_ANALYSIS = struct *)
 
   let rec lookup_in_rib name = function
     | [] -> None
@@ -490,19 +495,22 @@ module Semantic_Analysis : SEMANTIC_ANALYSIS = struct
     | Some minor -> Var' (name, Param minor);;
 
   (* run this first *)
+  (* *** *)
   let annotate_lexical_address =
     let rec run expr params env =
       match expr with
-      | ScmConst sexpr -> raise X_not_yet_implemented
-      | ScmVarGet (Var str) -> raise X_not_yet_implemented
-      | ScmIf (test, dit, dif) -> raise X_not_yet_implemented
-      | ScmSeq exprs -> raise X_not_yet_implemented
-      | ScmOr exprs -> raise X_not_yet_implemented
-      | ScmVarSet(Var v, expr) -> raise X_not_yet_implemented
+      | ScmConst sexpr -> ScmConst' sexpr
+      | ScmVarGet (Var str) -> ScmVarGet'(tag_lexical_address_for_var str params env)
+      | ScmIf (test, dit, dif) -> ScmIf'(run test params env, run dit params env, run dif params env)
+        (* | ScmSeq' of expr' list *)
+      | ScmSeq exprs -> ScmSeq'(List.map (fun exp -> run exp params env) exprs)
+        (* | ScmOr' of expr' list *)
+      | ScmOr exprs -> ScmOr'(List.map (fun exp -> run exp params env) exprs)
+      | ScmVarSet(Var v, expr) -> ScmVarSet'(tag_lexical_address_for_var v params env, run expr params env)
       (* this code does not [yet?] support nested define-expressions *)
-      | ScmVarDef(Var v, expr) -> raise X_not_yet_implemented
-      | ScmLambda (params', Simple, expr) -> raise X_not_yet_implemented
-      | ScmLambda (params', Opt opt, expr) -> raise X_not_yet_implemented
+      | ScmVarDef(Var v, expr) -> ScmVarDef'(tag_lexical_address_for_var v params env, run expr params env)
+      | ScmLambda (params', Simple, expr) -> ScmLambda'(params', Simple, run expr params' (params :: env))
+      | ScmLambda (params', Opt opt, expr) -> ScmLambda'(params', Opt opt, run expr (params'@[opt]) (params :: env))
       | ScmApplic (proc, args) ->
          ScmApplic' (run proc params env,
                      List.map (fun arg -> run arg params env) args,
@@ -514,11 +522,16 @@ module Semantic_Analysis : SEMANTIC_ANALYSIS = struct
   (* run this second *)
   let annotate_tail_calls = 
     let rec run in_tail = function
-      | (ScmConst' _) as orig -> raise X_not_yet_implemented
-      | (ScmVarGet' _) as orig -> raise X_not_yet_implemented
-      | ScmIf' (test, dit, dif) -> raise X_not_yet_implemented
+      | (ScmConst' _) as orig -> orig
+      | (ScmVarGet' _) as orig -> orig
+      | ScmIf' (test, dit, dif) -> ScmIf'(run test false, run dit in_tail, run dif in_tail)
       | ScmSeq' [] -> raise X_not_yet_implemented
       | ScmSeq' (expr :: exprs) -> raise X_not_yet_implemented
+      (* | ScmSeq' (exprs)
+         let (start,lastone) = split exprs in
+         let last = run last in_tail in
+         let firsts = List.map (fun (exp) -> run exp false) start in
+         ScmSeq'(firsts@[last]) *)
       | ScmOr' [] -> raise X_not_yet_implemented
       | ScmOr' (expr :: exprs) -> raise X_not_yet_implemented
       | ScmVarSet' (var', expr') -> raise X_not_yet_implemented
@@ -702,7 +715,7 @@ module Semantic_Analysis : SEMANTIC_ANALYSIS = struct
       (annotate_tail_calls
          (annotate_lexical_address expr));;
 
-end;; (* end of module Semantic_Analysis *)
+(* end;; end of module Semantic_Analysis *)
 
 let sexpr_of_var' (Var' (name, _)) = ScmSymbol name;;
 
