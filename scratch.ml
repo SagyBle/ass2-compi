@@ -600,3 +600,167 @@ let rec map3 f ls first second =
     let rec run in_tail = function
       | ScmSeq' [] -> raise X_not_yet_implemented
       | ScmSeq' (expr :: exprs) -> X_not_yet_implemented
+
+
+
+(* *** *)
+
+  let annotate_tail_calls = 
+    let rec run in_tail = function
+      | (ScmConst' _) as orig -> orig
+      | (ScmVarGet' _) as orig -> orig
+      | ScmIf' (test, dit, dif) -> ScmIf'(run false test, run in_tail dit, run in_tail dif)
+
+      | ScmSeq' [] as orig -> orig
+      | ScmSeq' (expr :: exprs) -> runl in_tail expr exprs
+
+      | ScmOr' [] as orig -> orig
+      | ScmOr' (expr :: exprs) -> runl in_tail expr exprs
+      | ScmVarSet' (var', expr') -> ScmVarSet'(var', run false expr')
+      | ScmVarDef' (var', expr') -> ScmVarDef'(var', run false expr')
+      | (ScmBox' _) as expr' -> raise X_not_yet_implemented
+      | (ScmBoxGet' _) as expr' -> raise X_not_yet_implemented
+      | ScmBoxSet' (var', expr') -> raise X_not_yet_implemented
+      | ScmLambda' (params, Simple, expr) -> raise X_not_yet_implemented
+      | ScmLambda' (params, Opt opt, expr) -> raise X_not_yet_implemented
+       | ScmApplic' (proc, args, app_kind) ->
+         if in_tail
+         then ScmApplic' (run false proc,
+                          List.map (fun arg -> run false arg) args,
+                          Tail_Call)
+         else ScmApplic' (run false proc,
+                          List.map (fun arg -> run false arg) args,
+                          Non_Tail_Call)
+    and runl in_tail expr = function
+      | [] -> [run in_tail expr]
+      | expr' :: exprs -> (run false expr) :: (runl in_tail expr' exprs)
+    in
+    fun expr' -> raise X_not_yet_implemented;;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    let annotate_tail_calls = 
+    let rec run in_tail = function
+      | (ScmConst' _) as orig -> raise X_not_yet_implemented
+      | (ScmVarGet' _) as orig -> raise X_not_yet_implemented
+      | ScmIf' (test, dit, dif) -> raise X_not_yet_implemented
+      | ScmSeq' [] -> raise X_not_yet_implemented
+      | ScmSeq' (expr :: exprs) -> raise X_not_yet_implemented
+      | ScmOr' [] -> raise X_not_yet_implemented
+      | ScmOr' (expr :: exprs) -> raise X_not_yet_implemented
+      | ScmVarSet' (var', expr') -> raise X_not_yet_implemented
+      | ScmVarDef' (var', expr') -> raise X_not_yet_implemented
+      | (ScmBox' _) as expr' -> raise X_not_yet_implemented
+      | (ScmBoxGet' _) as expr' -> raise X_not_yet_implemented
+      | ScmBoxSet' (var', expr') -> raise X_not_yet_implemented
+      | ScmLambda' (params, Simple, expr) -> raise X_not_yet_implemented
+      | ScmLambda' (params, Opt opt, expr) -> raise X_not_yet_implemented
+      | ScmApplic' (proc, args, app_kind) ->
+         if in_tail
+         then ScmApplic' (run false proc,
+                          List.map (fun arg -> run false arg) args,
+                          Tail_Call)
+         else ScmApplic' (run false proc,
+                          List.map (fun arg -> run false arg) args,
+                          Non_Tail_Call)
+    and runl in_tail expr = function
+      | [] -> [run in_tail expr]
+      | expr' :: exprs -> (run false expr) :: (runl in_tail expr' exprs)
+    in
+    fun expr' -> raise X_not_yet_implemented;;
+
+
+type expr =
+  | ScmConst of sexpr
+  | ScmVarGet of var
+  | ScmIf of expr * expr * expr
+  | ScmSeq of expr list
+  | ScmOr of expr list
+  | ScmVarSet of var * expr
+  | ScmVarDef of var * expr
+  | ScmLambda of string list * lambda_kind * expr
+  | ScmApplic of expr * expr list;;
+
+  type app_kind = Tail_Call | Non_Tail_Call;;
+
+  type lexical_address =
+    | Free
+    | Param of int
+    | Bound of int * int;;
+
+  type var' = Var' of string * lexical_address;;
+
+
+type expr' =
+  | ScmConst' of sexpr
+  | ScmVarGet' of var'
+  | ScmIf' of expr' * expr' * expr'
+  | ScmSeq' of expr' list
+  | ScmOr' of expr' list
+  | ScmVarSet' of var' * expr'
+  | ScmVarDef' of var' * expr'
+  | ScmBox' of var'
+  | ScmBoxGet' of var'
+  | ScmBoxSet' of var' * expr'
+  | ScmLambda' of string list * lambda_kind * expr'
+  | ScmApplic' of expr' * expr' list * app_kind;;
+
+
+
+let annotate_tail_calls = 
+   let rec run in_tail = function
+     | (ScmConst' _) as orig -> orig
+     | (ScmVarGet' _) as orig -> orig
+     | ScmIf' (test, dit, dif) -> ScmIf'(run false test, run in_tail dit, run in_tail dif)
+
+     | ScmSeq' [] as orig -> orig
+     | ScmSeq' (expr :: exprs) -> runl in_tail expr exprs
+
+     | ScmOr' []as orig -> orig
+     | ScmOr' (expr :: exprs) -> runl in_tail expr exprs
+     
+     | ScmVarSet' (var', expr') -> ScmVarSet'(var', run false expr')
+     | ScmVarDef' (var', expr') -> ScmVarDef'(var', run false expr')
+     | (ScmBox' _) as expr' -> raise X_not_yet_implemented
+     | (ScmBoxGet' _) as expr' -> raise X_not_yet_implemented
+     | ScmBoxSet' (var', expr') -> raise X_not_yet_implemented
+     | ScmLambda' (params, Simple, expr) -> ScmLambda'(params, Simple, run true expr)
+     | ScmLambda' (params, Opt opt, expr) -> ScmLambda'(params, Opt opt, run true expr)
+     | ScmApplic' (proc, args, app_kind) ->
+        if in_tail
+        then ScmApplic' (run false proc,
+                         List.map (fun arg -> run false arg) args,
+                         Tail_Call)
+        else ScmApplic' (run false proc,
+                         List.map (fun arg -> run false arg) args,
+                         Non_Tail_Call)
+   and runl in_tail expr = function
+     | [] -> [run in_tail expr]
+     | expr' :: exprs -> (run false expr) :: (runl in_tail expr' exprs)
+   in
+   fun expr' -> raise X_not_yet_implemented;;
+
+
+
+
+   let t = "(if (> x 3) x 3)";;
+    let test = annotate_lexical_address(tag_parse((nt_sexpr t 0).found));;
+
+  let show str = Printf.printf "\n\n%a\n\n"
+  print_expr (tag_parse
+  (nt_sexpr str 0).found);;
+
+  let show str = annotate_tail_calls(
+         annotate_lexical_address expr(
+          (tag_parse ((nt_sexpr str 0).found))));;

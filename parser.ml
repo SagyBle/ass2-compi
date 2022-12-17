@@ -495,16 +495,13 @@ end;; end of signature SEMANTIC_ANALYSIS *)
     | Some minor -> Var' (name, Param minor);;
 
   (* run this first *)
-  (* *** *)
   let annotate_lexical_address =
     let rec run expr params env =
       match expr with
       | ScmConst sexpr -> ScmConst' sexpr
       | ScmVarGet (Var str) -> ScmVarGet'(tag_lexical_address_for_var str params env)
       | ScmIf (test, dit, dif) -> ScmIf'(run test params env, run dit params env, run dif params env)
-        (* | ScmSeq' of expr' list *)
       | ScmSeq exprs -> ScmSeq'(List.map (fun exp -> run exp params env) exprs)
-        (* | ScmOr' of expr' list *)
       | ScmOr exprs -> ScmOr'(List.map (fun exp -> run exp params env) exprs)
       | ScmVarSet(Var v, expr) -> ScmVarSet'(tag_lexical_address_for_var v params env, run expr params env)
       (* this code does not [yet?] support nested define-expressions *)
@@ -518,29 +515,24 @@ end;; end of signature SEMANTIC_ANALYSIS *)
     in
     fun expr ->
     run expr [] [];;
-
+(* *** *)
   (* run this second *)
-  let annotate_tail_calls = 
+let annotate_tail_calls = 
     let rec run in_tail = function
       | (ScmConst' _) as orig -> orig
       | (ScmVarGet' _) as orig -> orig
-      | ScmIf' (test, dit, dif) -> ScmIf'(run test false, run dit in_tail, run dif in_tail)
-      | ScmSeq' [] -> raise X_not_yet_implemented
-      | ScmSeq' (expr :: exprs) -> raise X_not_yet_implemented
-      (* | ScmSeq' (exprs)
-         let (start,lastone) = split exprs in
-         let last = run last in_tail in
-         let firsts = List.map (fun (exp) -> run exp false) start in
-         ScmSeq'(firsts@[last]) *)
-      | ScmOr' [] -> raise X_not_yet_implemented
-      | ScmOr' (expr :: exprs) -> raise X_not_yet_implemented
-      | ScmVarSet' (var', expr') -> raise X_not_yet_implemented
-      | ScmVarDef' (var', expr') -> raise X_not_yet_implemented
-      | (ScmBox' _) as expr' -> raise X_not_yet_implemented
-      | (ScmBoxGet' _) as expr' -> raise X_not_yet_implemented
-      | ScmBoxSet' (var', expr') -> raise X_not_yet_implemented
-      | ScmLambda' (params, Simple, expr) -> raise X_not_yet_implemented
-      | ScmLambda' (params, Opt opt, expr) -> raise X_not_yet_implemented
+      | ScmIf' (test, dit, dif) -> ScmIf'(run false test, run in_tail dit, run in_tail dif)
+      | ScmSeq' [] as orig -> orig
+      | ScmSeq' (expr :: exprs) -> ScmSeq' (runl in_tail expr exprs)
+      | ScmOr' []as orig -> orig
+      | ScmOr' (expr :: exprs) -> ScmOr'(runl in_tail expr exprs)
+      | ScmVarSet' (var', expr') -> ScmVarSet'(var', run false expr')
+      | ScmVarDef' (var', expr') -> ScmVarDef'(var', run false expr')
+      | (ScmBox' _) as expr' -> expr'
+      | (ScmBoxGet' _) as expr' -> expr'
+      | ScmBoxSet' (var', expr') -> ScmBoxSet'(var', run false expr')
+      | ScmLambda' (params, Simple, expr) -> ScmLambda'(params, Simple, run true expr)
+      | ScmLambda' (params, Opt opt, expr) -> ScmLambda'(params, Opt opt, run true expr)
       | ScmApplic' (proc, args, app_kind) ->
          if in_tail
          then ScmApplic' (run false proc,
@@ -553,7 +545,7 @@ end;; end of signature SEMANTIC_ANALYSIS *)
       | [] -> [run in_tail expr]
       | expr' :: exprs -> (run false expr) :: (runl in_tail expr' exprs)
     in
-    fun expr' -> raise X_not_yet_implemented;;
+    fun expr' -> run false expr';;
 
   (* auto_box *)
 
@@ -685,9 +677,9 @@ end;; end of signature SEMANTIC_ANALYSIS *)
     | ScmIf' (test, dit, dif) ->
        ScmIf' (auto_box test, auto_box dit, auto_box dif)
     | ScmSeq' exprs -> ScmSeq' (List.map auto_box exprs)
-    | ScmVarSet' (v, expr) -> raise X_not_yet_implemented
-    | ScmVarDef' (v, expr) -> raise X_not_yet_implemented
-    | ScmOr' exprs -> raise X_not_yet_implemented
+    | ScmVarSet' (v, expr) -> ScmVarSet'(v, auto_box expr)
+    | ScmVarDef' (v, expr) -> ScmVarDef'(v, auto_box expr)
+    | ScmOr' exprs -> ScmOr' (List.map auto_box exprs)
     | ScmLambda' (params, Simple, expr') ->
        let box_these =
          List.filter
@@ -706,7 +698,23 @@ end;; end of signature SEMANTIC_ANALYSIS *)
          | _, _ -> ScmSeq'(new_sets @ [new_body]) in
        ScmLambda' (params, Simple, new_body)
     | ScmLambda' (params, Opt opt, expr') ->
-       raise X_not_yet_implemented
+      let params = params@[opt] in
+      let box_these =
+         List.filter
+           (fun param -> should_box_var param expr' params)
+           params in
+       let new_body = 
+         List.fold_left
+           (fun body name -> box_sets_and_gets name body)
+           (auto_box expr')
+           box_these in
+       let new_sets = make_sets box_these params in
+       let new_body = 
+         match box_these, new_body with
+         | [], _ -> new_body
+         | _, ScmSeq' exprs -> ScmSeq' (new_sets @ exprs)
+         | _, _ -> ScmSeq'(new_sets @ [new_body]) in
+       ScmLambda' (params, Opt opt, new_body)
     | ScmApplic' (proc, args, app_kind) ->
        ScmApplic' (auto_box proc, List.map auto_box args, app_kind);;
 
